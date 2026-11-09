@@ -1,0 +1,104 @@
+{
+  "info": {
+    "name": "Fuel Route Optimizer",
+    "description": "Cheapest fuel stops between two US locations. Open the **Visualize** tab of any successful response to see the route and stops on a map.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [{ "key": "base_url", "value": "http://127.0.0.1:8000" }],
+  "event": [
+    {
+      "listen": "test",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "if (pm.response.code !== 200) { return; }",
+          "const plan = pm.response.json();",
+          "pm.test('has fuel stops and a total cost', () => {",
+          "  pm.expect(plan.fuel_stops).to.be.an('array');",
+          "  pm.expect(plan.summary.total_fuel_cost).to.be.a('number');",
+          "});",
+          "pm.test('at most one routing API call', () => pm.expect(plan.meta.routing_api_calls).to.be.at.most(1));",
+          "const template = `",
+          "<link rel='stylesheet' href='https://unpkg.com/leaflet@1.9.4/dist/leaflet.css'>",
+          "<script src='https://unpkg.com/leaflet@1.9.4/dist/leaflet.js'></script>",
+          "<div style='font:14px system-ui;margin-bottom:6px'><b>{{start}} &rarr; {{finish}}</b> &middot; {{miles}} mi &middot; {{stops}} stops &middot; <b>\\${{cost}}</b></div>",
+          "<div id='map' style='height:520px'></div>",
+          "<script>",
+          "pm.getData((err, d) => {",
+          "  const map = L.map('map');",
+          "  L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {attribution: '&copy; OpenStreetMap'}).addTo(map);",
+          "  const line = L.geoJSON(d.geometry, {style: {color: '#1f6feb', weight: 5}}).addTo(map);",
+          "  map.fitBounds(line.getBounds());",
+          "  d.fuel_stops.forEach(s => L.circleMarker([s.location.lat, s.location.lon], {radius: 9, color: '#fff', weight: 2, fillColor: '#d9480f', fillOpacity: 1})",
+          "    .addTo(map).bindTooltip(s.stop_number + '. ' + s.name + ' — $' + s.price_per_gallon + '/gal, ' + s.gallons_purchased + ' gal = $' + s.cost, {permanent: false}));",
+          "});",
+          "</script>`;",
+          "pm.visualizer.set(template, {",
+          "  start: plan.start.label, finish: plan.finish.label, miles: plan.route.distance_miles,",
+          "  stops: plan.summary.number_of_stops, cost: plan.summary.total_fuel_cost,",
+          "  geometry: plan.route.geometry, fuel_stops: plan.fuel_stops",
+          "});"
+        ]
+      }
+    }
+  ],
+  "item": [
+    {
+      "name": "New York -> Los Angeles (GET)",
+      "request": {
+        "method": "GET",
+        "url": {
+          "raw": "{{base_url}}/api/route/?start=New York, NY&finish=Los Angeles, CA",
+          "host": ["{{base_url}}"], "path": ["api", "route", ""],
+          "query": [{ "key": "start", "value": "New York, NY" }, { "key": "finish", "value": "Los Angeles, CA" }]
+        }
+      }
+    },
+    {
+      "name": "Chicago -> Dallas (POST JSON)",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": { "mode": "raw", "raw": "{\n  \"start\": \"Chicago, IL\",\n  \"finish\": \"Dallas, TX\"\n}" },
+        "url": { "raw": "{{base_url}}/api/route/", "host": ["{{base_url}}"], "path": ["api", "route", ""] }
+      }
+    },
+    {
+      "name": "Coordinates + pure minimum cost (stop_penalty=0)",
+      "request": {
+        "method": "GET",
+        "url": {
+          "raw": "{{base_url}}/api/route/?start=47.6062,-122.3321&finish=25.7617,-80.1918&stop_penalty=0",
+          "host": ["{{base_url}}"], "path": ["api", "route", ""],
+          "query": [
+            { "key": "start", "value": "47.6062,-122.3321" },
+            { "key": "finish", "value": "25.7617,-80.1918" },
+            { "key": "stop_penalty", "value": "0" }
+          ]
+        }
+      }
+    },
+    {
+      "name": "HTML map page",
+      "request": {
+        "method": "GET",
+        "url": {
+          "raw": "{{base_url}}/api/route/map/?start=New York, NY&finish=Los Angeles, CA",
+          "host": ["{{base_url}}"], "path": ["api", "route", "map", ""],
+          "query": [{ "key": "start", "value": "New York, NY" }, { "key": "finish", "value": "Los Angeles, CA" }]
+        }
+      }
+    },
+    {
+      "name": "Error: location outside USA",
+      "request": {
+        "method": "GET",
+        "url": {
+          "raw": "{{base_url}}/api/route/?start=Toronto, ON&finish=Dallas, TX",
+          "host": ["{{base_url}}"], "path": ["api", "route", ""],
+          "query": [{ "key": "start", "value": "Toronto, ON" }, { "key": "finish", "value": "Dallas, TX" }]
+        }
+      }
+    }
+  ]
+}
