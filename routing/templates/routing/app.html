@@ -214,12 +214,15 @@
   // ---- Map ---------------------------------------------------------------
   const map = L.map("map", { zoomControl: false }).setView([39.5, -98.35], 4);
   L.control.zoom({ position: "topright" }).addTo(map);
-  // CARTO basemaps: free, no key, and they do not require a Referer header
-  // (OpenStreetMap's own tile servers block apps that don't send one).
-  L.tileLayer(`https://{s}.basemaps.cartocdn.com/rastertiles/${dark ? "dark_all" : "voyager"}/{z}/{x}/{y}{r}.png`, {
-    subdomains: "abcd", maxZoom: 19,
-    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a> · Routing: OSRM',
+  // Esri Canvas basemaps: free, no API key, no Referer requirement.
+  // (OpenStreetMap's tile servers block third-party apps; CARTO now needs a key.)
+  const esri = (name) => `https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/${name}/MapServer/tile/{z}/{y}/{x}`;
+  const tone = dark ? "Dark" : "Light";
+  L.tileLayer(esri(`World_${tone}_Gray_Base`), {
+    maxZoom: 16,
+    attribution: 'Tiles &copy; <a href="https://www.esri.com">Esri</a> &mdash; Esri, HERE, Garmin, &copy; OpenStreetMap contributors · Routing: OSRM',
   }).addTo(map);
+  L.tileLayer(esri(`World_${tone}_Gray_Reference`), { maxZoom: 16, pane: "overlayPane" }).addTo(map);
 
   const legend = L.control({ position: "bottomright" });
   legend.onAdd = () => {

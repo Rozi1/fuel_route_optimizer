@@ -78,7 +78,7 @@ Errors: `400` invalid or non-US input, `422` no drivable route or a gap longer t
 
 ### `GET /` and `GET /api/route/map/`
 
-The web UI. `/api/route/map/?start=...&finish=...` is a shareable link that opens it with that plan already rendered. Map tiles: CARTO basemaps (OpenStreetMap data). It reuses
+The web UI. `/api/route/map/?start=...&finish=...` is a shareable link that opens it with that plan already rendered. Map tiles: Esri Light/Dark Gray Canvas (free, no API key). It reuses
 the cached route, so it makes no extra API calls.
 
 ## How it works

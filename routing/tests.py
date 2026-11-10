@@ -139,7 +139,7 @@ class RouteApiTests(TestCase):
         resp = self.client.get("/")
         self.assertEqual(resp.status_code, 200)
         self.assertContains(resp, "Fuel Route Planner")
-        self.assertContains(resp, "basemaps.cartocdn.com")
+        self.assertContains(resp, "server.arcgisonline.com")
         self.assertEqual(resp.headers["Referrer-Policy"], "strict-origin-when-cross-origin")
 
     def test_map_page_with_bad_input_still_renders_ui(self):
