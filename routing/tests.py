@@ -135,6 +135,11 @@ class RouteApiTests(TestCase):
         self.assertContains(page, "leaflet")
         self.assertEqual(get.call_count, 1)
 
+    def test_home_page(self):
+        resp = self.client.get("/")
+        self.assertEqual(resp.status_code, 200)
+        self.assertContains(resp, "Fuel Route Optimizer")
+
     def test_post_requires_start_and_finish(self):
         resp = self.client.post(reverse("route-plan"), {"start": "Amarillo, TX"}, content_type="application/json")
         self.assertEqual(resp.status_code, 400)
