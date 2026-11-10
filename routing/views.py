@@ -57,15 +57,19 @@ class RoutePlanView(APIView):
         return Response(data)
 
 
-class RouteMapView(APIView):
-    """Interactive Leaflet map of the route and the chosen fuel stops (HTML).
+def planner_page(request):
+    """The web UI: form + map. Plans are fetched from the JSON API."""
+    return render(request, "routing/app.html", {"plan": None})
 
-    Uses the same cached route, so opening the map costs no extra API call.
+
+class RouteMapView(APIView):
+    """Shareable map page for a given start/finish (HTML).
+
+    The plan is rendered server-side from the same cached route, so opening the
+    map costs no extra API call. Invalid input falls back to the UI, which shows
+    the error message inline.
     """
 
     def get(self, request):
-        result, error = _run(request.query_params)
-        if error:
-            return error
-        data, _ = result
-        return render(request, "routing/map.html", {"plan": data})
+        result, _ = _run(request.query_params)
+        return render(request, "routing/app.html", {"plan": result[0] if result else None})

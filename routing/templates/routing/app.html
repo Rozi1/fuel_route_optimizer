@@ -1,0 +1,389 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Fuel Route Planner</title>
+  <meta name="referrer" content="strict-origin-when-cross-origin">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <style>
+    :root {
+      --bg: #f4f5f7; --panel: #ffffff; --panel-2: #f8f9fb; --text: #111827; --muted: #6b7280; --faint: #9ca3af;
+      --border: #e5e7eb; --accent: #2563eb; --accent-soft: #eff4ff; --good: #059669; --good-soft: #ecfdf5;
+      --warn: #d97706; --warn-soft: #fffbeb; --bad: #dc2626; --bad-soft: #fef2f2; --route: #2563eb;
+      --shadow: 0 1px 2px rgba(16,24,40,.06), 0 4px 16px rgba(16,24,40,.06);
+      --radius: 12px;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root:not([data-theme="light"]) {
+        --bg: #0b0f17; --panel: #111827; --panel-2: #0f1522; --text: #f3f4f6; --muted: #9ca3af; --faint: #6b7280;
+        --border: #1f2937; --accent: #60a5fa; --accent-soft: #172036; --good: #34d399; --good-soft: #0f2a22;
+        --warn: #fbbf24; --warn-soft: #2a2310; --bad: #f87171; --bad-soft: #2b1414; --route: #60a5fa;
+        --shadow: 0 1px 2px rgba(0,0,0,.4), 0 6px 20px rgba(0,0,0,.35);
+      }
+    }
+    * { box-sizing: border-box; }
+    html, body { height: 100%; }
+    body { margin: 0; font: 14px/1.5 Inter, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+           color: var(--text); background: var(--bg); -webkit-font-smoothing: antialiased; }
+    .app { display: grid; grid-template-columns: 420px 1fr; height: 100vh; }
+    aside { display: flex; flex-direction: column; min-height: 0; background: var(--panel); border-right: 1px solid var(--border); }
+    .scroll { overflow-y: auto; padding: 20px 20px 28px; flex: 1; }
+    #map { height: 100vh; background: var(--bg); }
+
+    /* Brand */
+    .brand { display: flex; align-items: center; gap: 10px; padding: 16px 20px; border-bottom: 1px solid var(--border); }
+    .brand-logo { width: 32px; height: 32px; border-radius: 9px; background: var(--accent); display: grid; place-items: center; color: #fff; }
+    .brand h1 { font-size: 15px; margin: 0; font-weight: 700; letter-spacing: -.01em; }
+    .brand p { margin: 0; font-size: 12px; color: var(--muted); }
+
+    /* Form */
+    form { display: grid; gap: 10px; }
+    .field { position: relative; }
+    .field label { position: absolute; left: 38px; top: 7px; font-size: 11px; color: var(--muted); font-weight: 500; pointer-events: none; }
+    .field input { width: 100%; padding: 24px 12px 8px 38px; border: 1px solid var(--border); border-radius: 10px;
+                   background: var(--panel-2); color: var(--text); font: inherit; font-weight: 500; outline: none; transition: border-color .15s, box-shadow .15s; }
+    .field input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); background: var(--panel); }
+    .field .dot { position: absolute; left: 14px; top: 50%; transform: translateY(-50%); width: 12px; height: 12px; border-radius: 50%; }
+    .dot.start { background: var(--good); box-shadow: 0 0 0 3px var(--good-soft); }
+    .dot.finish { background: var(--text); box-shadow: 0 0 0 3px var(--border); border-radius: 3px; }
+    .inputs { position: relative; display: grid; gap: 8px; }
+    .swap { position: absolute; right: 10px; top: 50%; transform: translateY(-50%); z-index: 2; width: 30px; height: 30px; border-radius: 50%;
+            border: 1px solid var(--border); background: var(--panel); color: var(--muted); cursor: pointer; display: grid; place-items: center; }
+    .swap:hover { color: var(--accent); border-color: var(--accent); }
+    details { border: 1px solid var(--border); border-radius: 10px; padding: 0 12px; }
+    summary { cursor: pointer; padding: 10px 0; color: var(--muted); font-size: 13px; font-weight: 500; list-style: none; display: flex; justify-content: space-between; }
+    summary::-webkit-details-marker { display: none; }
+    summary::after { content: "+"; font-size: 16px; line-height: 1; }
+    details[open] summary::after { content: "–"; }
+    .adv { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; padding-bottom: 12px; }
+    .adv label { font-size: 12px; color: var(--muted); display: grid; gap: 4px; }
+    .adv input { padding: 8px 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--panel-2); color: var(--text); font: inherit; }
+    .hint { grid-column: 1 / -1; font-size: 12px; color: var(--faint); margin: 0; }
+    .btn { display: flex; align-items: center; justify-content: center; gap: 8px; padding: 11px 14px; border-radius: 10px; border: 0;
+           background: var(--accent); color: #fff; font: inherit; font-weight: 600; cursor: pointer; transition: filter .15s; }
+    .btn:hover { filter: brightness(1.08); }
+    .btn:disabled { opacity: .7; cursor: progress; }
+    .spinner { width: 16px; height: 16px; border-radius: 50%; border: 2px solid rgba(255,255,255,.4); border-top-color: #fff; animation: spin .8s linear infinite; display: none; }
+    .loading .spinner { display: block; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .examples { display: flex; flex-wrap: wrap; gap: 6px; }
+    .chip { font-size: 12px; padding: 4px 10px; border-radius: 999px; border: 1px solid var(--border); background: var(--panel); color: var(--muted); cursor: pointer; }
+    .chip:hover { color: var(--accent); border-color: var(--accent); }
+    .error { display: none; margin-top: 12px; padding: 10px 12px; border-radius: 10px; background: var(--bad-soft); color: var(--bad); font-size: 13px; }
+
+    /* Results */
+    .section-title { font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--faint); margin: 22px 0 10px; }
+    .hero { margin-top: 20px; padding: 16px; border-radius: var(--radius); background: var(--accent-soft); }
+    .hero .label { font-size: 12px; color: var(--muted); font-weight: 500; }
+    .hero .cost { font-size: 34px; font-weight: 700; letter-spacing: -.02em; line-height: 1.1; }
+    .hero .sub { color: var(--muted); font-size: 13px; margin-top: 2px; }
+    .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-top: 10px; }
+    .stat { padding: 10px; border: 1px solid var(--border); border-radius: 10px; }
+    .stat b { display: block; font-size: 15px; font-weight: 600; font-variant-numeric: tabular-nums; }
+    .stat span { font-size: 11px; color: var(--muted); }
+    .compare { margin-top: 10px; font-size: 12px; color: var(--muted); padding: 8px 10px; border-radius: 8px; background: var(--panel-2); }
+    .compare b { color: var(--text); font-weight: 600; }
+
+    .tripbar { position: relative; height: 8px; border-radius: 999px; background: var(--border); margin: 6px 0 18px; }
+    .tripbar .fill { position: absolute; inset: 0; border-radius: 999px; background: linear-gradient(90deg, var(--good), var(--accent)); opacity: .35; }
+    .tripbar .tick { position: absolute; top: 50%; width: 14px; height: 14px; border-radius: 50%; transform: translate(-50%, -50%);
+                     background: var(--panel); border: 3px solid var(--warn); }
+    .tripbar .ends { position: absolute; top: 14px; font-size: 11px; color: var(--faint); }
+
+    .timeline { list-style: none; margin: 0; padding: 0; position: relative; }
+    .timeline::before { content: ""; position: absolute; left: 13px; top: 14px; bottom: 14px; width: 2px; background: var(--border); }
+    .tl { position: relative; display: grid; grid-template-columns: 28px 1fr; gap: 12px; padding: 6px 0; }
+    .tl .node { z-index: 1; width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center; font-size: 12px; font-weight: 700; color: #fff; }
+    .node.s { background: var(--good); }
+    .node.f { background: var(--text); color: var(--panel); border-radius: 8px; }
+    .node.n { background: var(--warn); }
+    .node.n.cheap { background: var(--good); }
+    .tl .end { padding-top: 4px; }
+    .tl .end b { font-weight: 600; }
+    .tl .end div { font-size: 12px; color: var(--muted); }
+    .stop { padding: 10px 12px; border: 1px solid var(--border); border-radius: 10px; cursor: pointer; transition: border-color .15s, box-shadow .15s, background .15s; }
+    .stop:hover, .stop.active { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+    .stop .top { display: flex; justify-content: space-between; gap: 8px; }
+    .stop .name { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .stop .cost { font-weight: 700; font-variant-numeric: tabular-nums; }
+    .stop .addr { font-size: 12px; color: var(--muted); }
+    .stop .meta { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
+    .pill { font-size: 11px; font-weight: 500; padding: 2px 8px; border-radius: 999px; background: var(--panel-2); color: var(--muted); border: 1px solid var(--border); font-variant-numeric: tabular-nums; }
+    .pill.price { background: var(--warn-soft); color: var(--warn); border-color: transparent; }
+    .pill.price.cheap { background: var(--good-soft); color: var(--good); }
+
+    .foot { margin-top: 18px; font-size: 12px; color: var(--faint); display: grid; gap: 6px; }
+    .foot a { color: var(--accent); text-decoration: none; }
+    .foot a:hover { text-decoration: underline; }
+    .empty { margin-top: 28px; text-align: center; color: var(--muted); }
+    .empty svg { color: var(--faint); }
+    .skeleton { margin-top: 20px; display: none; gap: 10px; }
+    .loading-state .skeleton { display: grid; }
+    .loading-state #results, .loading-state .empty { display: none; }
+    .sk { height: 64px; border-radius: 10px; background: linear-gradient(90deg, var(--panel-2), var(--border), var(--panel-2)); background-size: 200% 100%; animation: sh 1.2s infinite; }
+    @keyframes sh { to { background-position: -200% 0; } }
+
+    /* Map */
+    .leaflet-container { font-family: inherit; }
+    .marker { width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center; color: #fff; font-weight: 700; font-size: 12px;
+              border: 2.5px solid #fff; box-shadow: 0 2px 6px rgba(0,0,0,.35); transition: transform .15s; }
+    .marker.active { transform: scale(1.3); }
+    .popup b { font-weight: 600; }
+    .popup .row { display: flex; justify-content: space-between; gap: 16px; font-variant-numeric: tabular-nums; }
+    .legend { background: var(--panel); color: var(--text); padding: 8px 10px; border-radius: 10px; box-shadow: var(--shadow); font-size: 12px; display: grid; gap: 4px; }
+    .legend i { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 6px; vertical-align: -1px; }
+
+    @media (max-width: 860px) {
+      .app { grid-template-columns: 1fr; grid-template-rows: auto auto; height: auto; }
+      #map { height: 55vh; order: -1; }
+      aside { border-right: 0; }
+      .stats { grid-template-columns: repeat(2, 1fr); }
+    }
+  </style>
+</head>
+<body>
+<div class="app">
+  <aside>
+    <div class="brand">
+      <div class="brand-logo" aria-hidden="true">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 22V5a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v17"/><path d="M2 22h14"/><path d="M15 9h2a2 2 0 0 1 2 2v5a1.5 1.5 0 0 0 3 0V8l-3-3"/><path d="M7 7h4"/></svg>
+      </div>
+      <div>
+        <h1>Fuel Route Planner</h1>
+        <p>Cheapest fuel stops · 500 mi range · 10 MPG</p>
+      </div>
+    </div>
+
+    <div class="scroll" id="panel">
+      <form id="form" autocomplete="off">
+        <div class="inputs">
+          <div class="field"><span class="dot start"></span><label for="start">Start</label>
+            <input id="start" name="start" placeholder="City, ST or lat,lon" required></div>
+          <div class="field"><span class="dot finish"></span><label for="finish">Finish</label>
+            <input id="finish" name="finish" placeholder="City, ST or lat,lon" required></div>
+          <button type="button" class="swap" id="swap" title="Swap start and finish" aria-label="Swap start and finish">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M7 4v16M7 20l-3-3M7 20l3-3M17 20V4M17 4l-3 3M17 4l3 3"/></svg>
+          </button>
+        </div>
+        <details>
+          <summary>Options</summary>
+          <div class="adv">
+            <label>Corridor (mi)<input type="number" name="corridor_miles" min="1" max="50" step="1" placeholder="10"></label>
+            <label>Stop penalty ($)<input type="number" name="stop_penalty" min="0" max="1000" step="1" placeholder="10"></label>
+            <p class="hint">Corridor: how far off the route a truck stop may be. Stop penalty: set 0 for the pure lowest-cost plan (more stops).</p>
+          </div>
+        </details>
+        <button class="btn" id="go" type="submit"><span class="spinner"></span><span id="go-label">Plan route</span></button>
+        <div class="examples">
+          <span class="chip" data-s="New York, NY" data-f="Los Angeles, CA">NYC → LA</span>
+          <span class="chip" data-s="Chicago, IL" data-f="Dallas, TX">Chicago → Dallas</span>
+          <span class="chip" data-s="Miami, FL" data-f="Seattle, WA">Miami → Seattle</span>
+          <span class="chip" data-s="Denver, CO" data-f="Atlanta, GA">Denver → Atlanta</span>
+        </div>
+      </form>
+      <div class="error" id="error" role="alert"></div>
+
+      <div class="skeleton"><div class="sk" style="height:110px"></div><div class="sk"></div><div class="sk"></div><div class="sk"></div></div>
+
+      <div class="empty" id="empty">
+        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M9 20l-5.447-2.724A1 1 0 0 1 3 16.382V5.618a1 1 0 0 1 1.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0 0 21 18.382V7.618a1 1 0 0 0-.553-.894L15 4m0 13V4m0 0L9 7"/></svg>
+        <p>Enter two US locations to see the route, the cheapest fuel stops and the total cost.</p>
+      </div>
+
+      <div id="results" hidden></div>
+    </div>
+  </aside>
+  <div id="map"></div>
+</div>
+
+{{ plan|json_script:"initial-plan" }}
+<script>
+(() => {
+  const API = "{% url 'route-plan' %}";
+  const $ = (s) => document.querySelector(s);
+  const esc = (t) => String(t ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+  const money = (n) => "$" + Number(n).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const num = (n, d = 0) => Number(n).toLocaleString("en-US", { maximumFractionDigits: d });
+  const dark = matchMedia("(prefers-color-scheme: dark)").matches;
+
+  // ---- Map ---------------------------------------------------------------
+  const map = L.map("map", { zoomControl: false }).setView([39.5, -98.35], 4);
+  L.control.zoom({ position: "topright" }).addTo(map);
+  // CARTO basemaps: free, no key, and they do not require a Referer header
+  // (OpenStreetMap's own tile servers block apps that don't send one).
+  L.tileLayer(`https://{s}.basemaps.cartocdn.com/rastertiles/${dark ? "dark_all" : "voyager"}/{z}/{x}/{y}{r}.png`, {
+    subdomains: "abcd", maxZoom: 19,
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a> · Routing: OSRM',
+  }).addTo(map);
+
+  const legend = L.control({ position: "bottomright" });
+  legend.onAdd = () => {
+    const d = L.DomUtil.create("div", "legend");
+    d.innerHTML = '<div><i style="background:#059669"></i>Below-average price</div><div><i style="background:#d97706"></i>Above-average price</div>';
+    return d;
+  };
+
+  let layer = L.layerGroup().addTo(map);
+  let markers = [];
+
+  const css = (v) => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+  const pin = (html, cls = "", color = "") => L.divIcon({ className: "", iconSize: [28, 28], iconAnchor: [14, 14], popupAnchor: [0, -14],
+    html: `<div class="marker ${cls}" style="background:${color}">${html}</div>` });
+
+  function drawMap(plan) {
+    layer.clearLayers(); markers = [];
+    const avg = plan.summary.average_price_paid;
+    L.geoJSON(plan.route.geometry, { style: { color: "#ffffff", weight: 9, opacity: dark ? .15 : .9 } }).addTo(layer);
+    const line = L.geoJSON(plan.route.geometry, { style: { color: css("--route"), weight: 5, opacity: .95 } }).addTo(layer);
+
+    L.marker([plan.start.lat, plan.start.lon], { icon: pin("A", "", "#059669"), zIndexOffset: 500 }).addTo(layer)
+      .bindPopup(`<div class="popup"><b>Start</b><br>${esc(plan.start.label)}</div>`);
+    L.marker([plan.finish.lat, plan.finish.lon], { icon: pin("B", "", "#111827"), zIndexOffset: 500 }).addTo(layer)
+      .bindPopup(`<div class="popup"><b>Finish</b><br>${esc(plan.finish.label)}</div>`);
+
+    plan.fuel_stops.forEach((s, i) => {
+      const cheap = avg && s.price_per_gallon <= avg;
+      const m = L.marker([s.location.lat, s.location.lon], { icon: pin(s.stop_number, "", cheap ? "#059669" : "#d97706"), zIndexOffset: 1000 })
+        .addTo(layer)
+        .bindPopup(`<div class="popup"><b>${s.stop_number}. ${esc(s.name)}</b><br>
+          <span style="color:#6b7280">${esc(s.address)}, ${esc(s.city)}, ${esc(s.state)}</span>
+          <div class="row" style="margin-top:6px"><span>Route mile</span><b>${num(s.route_mile, 1)}</b></div>
+          <div class="row"><span>Price</span><b>$${s.price_per_gallon.toFixed(3)}/gal</b></div>
+          <div class="row"><span>Buy</span><b>${num(s.gallons_purchased, 1)} gal</b></div>
+          <div class="row"><span>Cost</span><b>${money(s.cost)}</b></div></div>`);
+      m.on("click", () => highlight(i, false));
+      markers.push(m);
+    });
+    legend.addTo(map);
+    map.fitBounds(line.getBounds(), { padding: [40, 40] });
+  }
+
+  function highlight(i, pan = true) {
+    document.querySelectorAll(".stop").forEach((el, j) => el.classList.toggle("active", j === i));
+    markers.forEach((m, j) => m.getElement()?.firstElementChild?.classList.toggle("active", j === i));
+    const card = document.querySelector(`.stop[data-i="${i}"]`);
+    if (!pan) card?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    if (pan) { map.flyTo(markers[i].getLatLng(), Math.max(map.getZoom(), 9), { duration: .6 }); markers[i].openPopup(); }
+  }
+
+  // ---- Panel -------------------------------------------------------------
+  function renderPanel(plan) {
+    const s = plan.summary, r = plan.route, avg = s.average_price_paid;
+    const extra = s.total_fuel_cost - s.theoretical_min_fuel_cost;
+    const ticks = plan.fuel_stops.map(st =>
+      `<span class="tick" style="left:${Math.min(100, st.route_mile / r.distance_miles * 100)}%;border-color:${avg && st.price_per_gallon <= avg ? "#059669" : "#d97706"}" title="Stop ${st.stop_number} · mile ${num(st.route_mile)}"></span>`).join("");
+    const stops = plan.fuel_stops.map((st, i) => {
+      const cheap = avg && st.price_per_gallon <= avg;
+      return `<li class="tl"><span class="node n ${cheap ? "cheap" : ""}">${st.stop_number}</span>
+        <div class="stop" data-i="${i}" tabindex="0">
+          <div class="top"><span class="name">${esc(st.name)}</span><span class="cost">${money(st.cost)}</span></div>
+          <div class="addr">${esc(st.city)}, ${esc(st.state)} · ${esc(st.address)}</div>
+          <div class="meta">
+            <span class="pill price ${cheap ? "cheap" : ""}">$${st.price_per_gallon.toFixed(3)}/gal</span>
+            <span class="pill">${num(st.gallons_purchased, 1)} gal</span>
+            <span class="pill">Mile ${num(st.route_mile)}</span>
+            ${st.off_route_miles >= 1 ? `<span class="pill">${num(st.off_route_miles, 1)} mi off route</span>` : ""}
+          </div>
+        </div></li>`;
+    }).join("");
+
+    $("#results").innerHTML = `
+      <div class="hero">
+        <div class="label">Total fuel cost</div>
+        <div class="cost">${money(s.total_fuel_cost)}</div>
+        <div class="sub">${esc(plan.start.label)} → ${esc(plan.finish.label)}</div>
+      </div>
+      <div class="stats">
+        <div class="stat"><b>${num(r.distance_miles)}</b><span>miles</span></div>
+        <div class="stat"><b>${Math.floor(r.duration_hours)}h ${Math.round(r.duration_hours % 1 * 60)}m</b><span>driving</span></div>
+        <div class="stat"><b>${s.number_of_stops}</b><span>fuel stops</span></div>
+        <div class="stat"><b>${avg ? "$" + avg.toFixed(2) : "–"}</b><span>avg / gal</span></div>
+      </div>
+      <div class="compare">${num(s.total_gallons_purchased, 1)} gal purchased.
+        ${s.theoretical_min_stops > s.number_of_stops
+          ? `Absolute lowest cost is <b>${money(s.theoretical_min_fuel_cost)}</b> but needs <b>${s.theoretical_min_stops} stops</b>; this plan saves ${s.theoretical_min_stops - s.number_of_stops} stops for ${money(extra)} more.`
+          : "This is the lowest possible fuel cost for this route."}</div>
+
+      <div class="section-title">Trip</div>
+      <div class="tripbar"><div class="fill"></div>${ticks}
+        <span class="ends" style="left:0">0 mi</span><span class="ends" style="right:0">${num(r.distance_miles)} mi</span></div>
+
+      <ol class="timeline">
+        <li class="tl"><span class="node s">A</span><div class="end"><b>${esc(plan.start.label)}</b><div>Start</div></div></li>
+        ${stops}
+        <li class="tl"><span class="node f">B</span><div class="end"><b>${esc(plan.finish.label)}</b><div>Arrive · ${num(r.distance_miles)} mi</div></div></li>
+      </ol>
+
+      <div class="foot">
+        <div>${esc(s.assumption)} ${s.stations_in_corridor} truck stops within ${num(s.corridor_miles)} mi of the route were considered.</div>
+        <div>${plan.meta.routing_api_calls} routing API call${plan.meta.routing_api_calls === 1 ? "" : "s"}${plan.meta.route_cache_hit ? " (route served from cache)" : ""} · computed in ${num(plan.meta.elapsed_ms)} ms · <a href="${esc(apiUrl())}" target="_blank" rel="noopener">View JSON</a></div>
+      </div>`;
+    $("#results").hidden = false;
+    $("#empty").style.display = "none";
+    document.querySelectorAll(".stop").forEach(el => {
+      const i = +el.dataset.i;
+      el.addEventListener("click", () => highlight(i));
+      el.addEventListener("keydown", (e) => { if (e.key === "Enter") highlight(i); });
+    });
+  }
+
+  // ---- Data flow ---------------------------------------------------------
+  const form = $("#form");
+  function params() {
+    const p = new URLSearchParams();
+    for (const [k, v] of new FormData(form)) if (String(v).trim() !== "") p.set(k, String(v).trim());
+    return p;
+  }
+  const apiUrl = () => `${API}?${params()}`;
+
+  function setLoading(on) {
+    $("#go").disabled = on;
+    $("#go").classList.toggle("loading", on);
+    $("#go-label").textContent = on ? "Planning…" : "Plan route";
+    $("#panel").classList.toggle("loading-state", on);
+  }
+  function showError(msg) { const e = $("#error"); e.textContent = msg; e.style.display = msg ? "block" : "none"; }
+
+  async function plan() {
+    showError("");
+    setLoading(true);
+    history.replaceState(null, "", `${location.pathname}?${params()}`);
+    try {
+      const res = await fetch(apiUrl(), { headers: { Accept: "application/json" } });
+      const data = await res.json();
+      if (!res.ok) {
+        const msg = data.error || Object.entries(data.errors || {}).map(([k, v]) => `${k}: ${[].concat(v).join(" ")}`).join(" · ");
+        throw new Error(msg || `Request failed (${res.status})`);
+      }
+      renderPanel(data); drawMap(data);
+    } catch (err) {
+      showError(err.message || "Something went wrong.");
+    } finally { setLoading(false); }
+  }
+
+  form.addEventListener("submit", (e) => { e.preventDefault(); plan(); });
+  $("#swap").addEventListener("click", () => { const a = $("#start").value; $("#start").value = $("#finish").value; $("#finish").value = a; });
+  document.querySelectorAll(".chip").forEach(c => c.addEventListener("click", () => {
+    $("#start").value = c.dataset.s; $("#finish").value = c.dataset.f; plan();
+  }));
+
+  // Initial state: server-rendered plan, or query string, or defaults.
+  const qs = new URLSearchParams(location.search);
+  for (const k of ["start", "finish", "corridor_miles", "stop_penalty"]) {
+    const el = form.elements[k];
+    if (el && qs.get(k)) el.value = qs.get(k);
+  }
+  if (qs.get("corridor_miles") || qs.get("stop_penalty")) form.querySelector("details").open = true;
+  const initial = JSON.parse(document.getElementById("initial-plan").textContent);
+  if (initial) { renderPanel(initial); drawMap(initial); }
+  else if (qs.get("start") && qs.get("finish")) plan();
+  else { $("#start").value = "New York, NY"; $("#finish").value = "Los Angeles, CA"; }
+})();
+</script>
+</body>
+</html>

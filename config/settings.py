@@ -89,6 +89,10 @@ USE_I18N = True
 USE_TZ = True
 
 STATIC_URL = "static/"
+
+# Django's default ("same-origin") strips the Referer from map tile requests,
+# which tile servers such as OpenStreetMap's reject with HTTP 403.
+SECURE_REFERRER_POLICY = "strict-origin-when-cross-origin"
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 REST_FRAMEWORK = {

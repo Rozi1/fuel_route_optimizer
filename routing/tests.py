@@ -138,7 +138,14 @@ class RouteApiTests(TestCase):
     def test_home_page(self):
         resp = self.client.get("/")
         self.assertEqual(resp.status_code, 200)
-        self.assertContains(resp, "Fuel Route Optimizer")
+        self.assertContains(resp, "Fuel Route Planner")
+        self.assertContains(resp, "basemaps.cartocdn.com")
+        self.assertEqual(resp.headers["Referrer-Policy"], "strict-origin-when-cross-origin")
+
+    def test_map_page_with_bad_input_still_renders_ui(self):
+        resp = self.client.get(reverse("route-map"), {"start": "Toronto, ON", "finish": "Dallas, TX"})
+        self.assertEqual(resp.status_code, 200)
+        self.assertContains(resp, "Plan route")
 
     def test_post_requires_start_and_finish(self):
         resp = self.client.post(reverse("route-plan"), {"start": "Amarillo, TX"}, content_type="application/json")
