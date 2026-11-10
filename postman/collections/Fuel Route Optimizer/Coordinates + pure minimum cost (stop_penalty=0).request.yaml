@@ -1,0 +1,8 @@
+$kind: http-request
+url: "{{base_url}}/api/route/?start=47.6062,-122.3321&finish=25.7617,-80.1918&stop_penalty=0"
+method: GET
+queryParams:
+  start: 47.6062,-122.3321
+  finish: 25.7617,-80.1918
+  stop_penalty: "0"
+order: 3000

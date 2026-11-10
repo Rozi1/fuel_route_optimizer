@@ -1,0 +1,8 @@
+$kind: http-request
+name: "Error: location outside USA"
+url: "{{base_url}}/api/route/?start=Toronto, ON&finish=Dallas, TX"
+method: GET
+queryParams:
+  start: Toronto, ON
+  finish: Dallas, TX
+order: 5000

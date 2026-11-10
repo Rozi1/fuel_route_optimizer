@@ -1,0 +1,14 @@
+$kind: http-request
+name: Chicago -> Dallas (POST JSON)
+url: "{{base_url}}/api/route/"
+method: POST
+headers:
+  Content-Type: application/json
+body:
+  type: text
+  content: |-
+    {
+      "start": "Chicago, IL",
+      "finish": "Dallas, TX"
+    }
+order: 2000

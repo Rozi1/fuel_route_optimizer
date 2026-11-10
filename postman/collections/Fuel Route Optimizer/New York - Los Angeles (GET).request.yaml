@@ -1,0 +1,8 @@
+$kind: http-request
+name: New York -> Los Angeles (GET)
+url: "{{base_url}}/api/route/?start=New York, NY&finish=Los Angeles, CA"
+method: GET
+queryParams:
+  start: New York, NY
+  finish: Los Angeles, CA
+order: 1000

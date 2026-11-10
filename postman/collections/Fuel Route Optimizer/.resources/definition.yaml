@@ -1,0 +1,35 @@
+$kind: collection
+description: Cheapest fuel stops between two US locations. Open the **Visualize** tab of any successful response to see the route and stops on a map.
+variables:
+  base_url: http://127.0.0.1:8000
+scripts:
+  - type: http:afterResponse
+    code: |-
+      if (pm.response.code !== 200) { return; }
+      const plan = pm.response.json();
+      pm.test('has fuel stops and a total cost', () => {
+        pm.expect(plan.fuel_stops).to.be.an('array');
+        pm.expect(plan.summary.total_fuel_cost).to.be.a('number');
+      });
+      pm.test('at most one routing API call', () => pm.expect(plan.meta.routing_api_calls).to.be.at.most(1));
+      const template = `
+      <link rel='stylesheet' href='https://unpkg.com/leaflet@1.9.4/dist/leaflet.css'>
+      <script src='https://unpkg.com/leaflet@1.9.4/dist/leaflet.js'></script>
+      <div style='font:14px system-ui;margin-bottom:6px'><b>{{start}} &rarr; {{finish}}</b> &middot; {{miles}} mi &middot; {{stops}} stops &middot; <b>\${{cost}}</b></div>
+      <div id='map' style='height:520px'></div>
+      <script>
+      pm.getData((err, d) => {
+        const map = L.map('map');
+        L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}', {maxZoom: 16, attribution: 'Tiles &copy; Esri'}).addTo(map);
+        const line = L.geoJSON(d.geometry, {style: {color: '#1f6feb', weight: 5}}).addTo(map);
+        map.fitBounds(line.getBounds());
+        d.fuel_stops.forEach(s => L.circleMarker([s.location.lat, s.location.lon], {radius: 9, color: '#fff', weight: 2, fillColor: '#d9480f', fillOpacity: 1})
+          .addTo(map).bindTooltip(s.stop_number + '. ' + s.name + ' â€” $' + s.price_per_gallon + '/gal, ' + s.gallons_purchased + ' gal = $' + s.cost, {permanent: false}));
+      });
+      </script>`;
+      pm.visualizer.set(template, {
+        start: plan.start.label, finish: plan.finish.label, miles: plan.route.distance_miles,
+        stops: plan.summary.number_of_stops, cost: plan.summary.total_fuel_cost,
+        geometry: plan.route.geometry, fuel_stops: plan.fuel_stops
+      });
+    language: text/javascript
